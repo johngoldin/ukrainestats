@@ -13,6 +13,8 @@ The earliest reports that I see from the Ukrainian Ministry of Defense are from 
 library(tidyverse)
 library(glue)
 library(xml2)
+library(GGally)
+
 # library(curl)
 ```
 ```{r}
@@ -45,12 +47,15 @@ milestones <- milestones |> relocate(key_symbol)
 milestones$category = "Personnel"
 ```
 ```{r}
-#| scrape-mod-data
-the_dates <-  seq(from = ymd("2022-04-15"), to = ymd("2023-03-15"), by = "1 month") %m+% days(3) # add 3 days to get the 15th of each month
+#| label: scrape-mod-data
+
+load("uk_df.RData")
+the_dates <-  seq(from = ymd("2022-04-15"), to = today(), by = "1 month") %m+% days(3) # add 3 days to get the 15th of each month
 the_dates <- the_dates[!(the_dates %in% uk_df$date)]
 
 the_dates <- seq(from = ymd("2022-04-15"), to = today(), by = "1 day")
 
+# dates that need to be added to uk_df
 additional_date <- seq(from = today() - 15, to = today(), by = "1 day")
 abunch <- map_chr(additional_date, fetch_mod_text, .progress = TRUE)
 abunch <- abunch[!is.na(abunch)]
@@ -63,7 +68,7 @@ if (length(abunch > 0)) {
 # use overlap_dates to check whether MOD has updated recent daata
 overlap_dates <- bind_rows(uk_df |> filter((uk_df$date %in% uk_additions$date)), 
                            uk_additions |> filter(uk_additions$date %in% uk_df$date)) |> 
-  arrange(date) |> View()
+  arrange(date) # |> View()
 save_uk__df <- uk_df
 uk_df <- bind_rows(uk_df |> filter(!(uk_df$date %in% uk_additions$date)), uk_additions)
 
@@ -111,7 +116,7 @@ uk_weekly <- uk_df  |> arrange(date) |>
          Aircraft = (aircraft - lag(aircraft)) / gap)
   
 
-save(uk_df, file = "uk_df.RDat")
+save(uk_df, file = "uk_df.RData")
 ```
 
 2022-04-29<p>personnel ‒ about 23000 (+200) persons were liquidated,</p><p>tanks ‒ 986 (+16),</p><p>APV ‒ 2418 (+29),</p><p>artillery systems – 435 (+4),</p><p>MLRS ‒ 151 (+0),</p><p>Anti-aircraft warfare systems ‒ 73 (+1),</p><p>aircraft – 189 (+2),</p><p>helicopters – 155 (+0),</p><p>vehicles ‒ 1695 (+7),</p><p>boats / cutters ‒ 8 (+0),</p><p>fuel tanks ‒ 76 (+0),</p><p>UAV operational-tactical level ‒ 229 (+14).</p><p>special equipment ‒ 31 (+0).</p>
@@ -157,5 +162,22 @@ pwk <- ggplot(data = for_plot_wk, aes(x = date, y = count)) +
   ggtitle("Ukranian MOD Reports of Average Daily Russian Losses") + 
   xlab("") + ylab("Average Daily Losses") +
   theme_minimal()
+```
+```{r}
+#| label: pairs-like
+
+
+
+pair2 <- uk_weekly |> 
+  mutate(m = year(date) |> factor(),
+         phase = case_when(
+           date <= ymd("2022-05-20") ~ "phase 1",
+           date <= ymd("2022-08-29") ~ "phase 2",
+           date <= ymd("2022-11-11") ~ "phase 3",
+           TRUE ~ "phase 4"
+         )) |> 
+  ggpairs(columns = c("Personnel", "Tanks", "APV", "Artillery", "MLRS"),
+          mapping = aes(colour = factor(phase)))
+
 ```
 

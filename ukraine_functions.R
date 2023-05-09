@@ -9,8 +9,19 @@ library(tidyverse)
 library(glue)
 library(xml2)
 
+#' Extract the casualty count from a line in the report based on a regex search
+#'
+#'
+#'
+#' @param text The text of the web page that contains the casualty report.
+#' @param phrase The regex that will find the casualty number.
+#'
+#' @return The casualty number.
+#' @export
+#'
+#' @examples
+#' x <- str_extract(text, "(?<=personnel [‒-] about )\\d*")
 extract_number  <-  function(text, phrase = "(?<=personnel [‒-] about )\\d*") {
-  # x <- str_extract(text, "(?<=personnel [‒-] about )\\d*")
   x <- str_extract(text, phrase)
   if (is.na(x)) {
     if (!str_detect(text, phrase)) stop(paste0(phrase, " not found"))
@@ -77,17 +88,36 @@ extract_number  <-  function(text, phrase = "(?<=personnel [‒-] about )\\d*") 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-create_mod_link <- function(adate) {
+#' Create a URL that goes to a standard Russian casualty report
+#'
+#' @param adate The Date for the report.
+#'
+#' @return String with the URL for the casualty report.
+#' @export
+#'
+#' @examples
+create_ukr_mod_link <- function(adate) {
   if (!is.Date(adate)) adate <- as_date(adate)
   # must have this form:   (4 digit years)
   # https://www.mil.gov.ua/en/news/2023/03/08/the-total-combat-losses-of-the-enemy-from-24-02-2022-to-08-03-2023/
-  if (adate >= as_date("2023-03-03")) link <- glue("https://www.mil.gov.ua/en/news/", format(adate, "%Y/%m/%d"), "/the-total-combat-losses-of-the-enemy-from-24-02-2022-to-", format(adate, "%d-%m-%Y"), "/")
+  if (adate == as_date("2023-03-30")) link <-  "https://www.mil.gov.ua/en/news/2023/03/30/blizko-173-tis-osib-znishheno-ponad-6970-bojovih-bronovanih-mashin-voroga-–-genshtab-zsu/"
+  else if (adate >= as_date("2023-03-03")) link <- glue("https://www.mil.gov.ua/en/news/", format(adate, "%Y/%m/%d"), "/the-total-combat-losses-of-the-enemy-from-24-02-2022-to-", format(adate, "%d-%m-%Y"), "/")
   else if (adate >= as_date("2023-01-01")) link <- glue("https://www.mil.gov.ua/en/news/", format(adate, "%Y/%m/%d"), "/the-total-combat-losses-of-the-enemy-from-24-02-22-to-", format(adate, "%d-%m-%y"), "/")
   else link <- glue("https://www.mil.gov.ua/en/news/", format(adate, "%Y/%m/%d"), "/the-total-combat-losses-of-the-enemy-from-24-02-to-", format(adate, "%d-%m"), "/")
   link
 }
 
-fetch_mod_text <- function(adate) {
+#' Extract the lines from a Ukraine Ministry of Defense page that contain the Russian casualty counts
+#'
+#' @param adate Date of casualty report on Ukraine Ministry of Defense web site
+#'
+#' @return List of text lines that contain the casualty reports, each category on different line.
+#' @export
+#'
+#' @examples
+#' fetch_mod_text("2023-03-29")
+
+fetch_ukr_mod_text <- function(adate) {
   if (!is.Date(adate)) adate <- as_date(adate)
   if (adate < ymd("2022-04-12")) return(NA_character_)
   if (adate > today()) return(NA_character_)
@@ -102,6 +132,7 @@ fetch_mod_text <- function(adate) {
     warning(paste0("Info line not found for ", adate))
     return(NA_character_)
   }
+  # 2023-04-23 not read because text of report appears twice on the page
   if (length(the_line) > 1) {
     warning(paste0("More than one line found ", adate, "\n", link))
     return(NA_character_)
@@ -116,18 +147,83 @@ fetch_mod_text <- function(adate) {
   str_flatten(c(as.character(adate), x[first_line:last_line]))
 }
 
-parse_mod_text <- function(uk_test) {
-  uk_test$personnel = map_dbl(str_replace_all(uk_test$report, intToUtf8(160), ""), extract_number, phrase = "(?<=personnel ?[‒-–-] ? ?about )\\d*" )
-  uk_test$tanks = map_dbl(uk_test$report, extract_number, phrase = "(?<=tanks [‒-–-] )\\d*" )
-  uk_test$apv = map_dbl(uk_test$report, extract_number, phrase = "(?<=APV [‒-–-] )\\d*" )
-  uk_test$artillery = map_dbl(uk_test$report, extract_number, phrase = "(?<=artillery systems [‒-–-] )\\d*" )
-  uk_test$mlrs = map_dbl(uk_test$report, extract_number, phrase = "(?<=MLRS [‒-–-] )\\d*" )
-  uk_test$aa = map_dbl(uk_test$report, extract_number, phrase = "(?<=Anti-aircraft warfare systems [‒-–-] )\\d*" )
-  uk_test$aircraft = map_dbl(uk_test$report, extract_number, phrase = "(?<=aircraft [‒-–-] )\\d*" )
-  uk_test$helicopters = map_dbl(uk_test$report, extract_number, phrase = "(?<=helicopters [‒-–-] )\\d*" )
-  uk_test$uav = map_dbl(uk_test$report, extract_number, phrase = "(?<=UAV operational-tactical level [‒-–-] )\\d*" )
-  uk_test$vehicles = map_dbl(uk_test$report, extract_number, phrase = "(?<=vehicles and fuel tanks [‒-–-] )\\d*" )
-  # uk_test$special = map_dbl(uk_test$report, extract_number, phrase = "(?<=special equipment [‒-–-] )\\d*" )
-  uk_test$warships = map_dbl(uk_test$report, extract_number, phrase = "(?<=warships / boats [‒-–-] )\\d*" )
-  uk_test
+#' Parse the Russian casualty info from Ukraine MOD summary pages.
+#'
+#' The text from each web page is in the report column. The extract_number
+#' function is used to find the casualties for each item, based on a regular expression
+#' to search for that type of item.
+#'
+#' @param mod_df A df which has a report column that contains the text from casualty web pages.
+#'
+#' @return The same df is returned, but with numeric columns added for each type of casualty.
+#' @export
+#'
+#' @examples
+parse_ukr_mod_text <- function(mod_df) {
+  mod_df$personnel = map_dbl(str_replace_all(mod_df$report, intToUtf8(160), ""), extract_number, phrase = "(?<=personnel ?[‒-–-] ? ?about )\\d*" )
+  mod_df$tanks = map_dbl(mod_df$report, extract_number, phrase = "(?<=tanks [‒-–-] )\\d*" )
+  mod_df$apv = map_dbl(mod_df$report, extract_number, phrase = "(?<=APV [‒-–-] )\\d*" )
+  mod_df$artillery = map_dbl(mod_df$report, extract_number, phrase = "(?<=artillery systems [‒-–-] )\\d*" )
+  mod_df$mlrs = map_dbl(mod_df$report, extract_number, phrase = "(?<=MLRS [‒-–-] )\\d*" )
+  mod_df$aa = map_dbl(mod_df$report, extract_number, phrase = "(?<=Anti-aircraft warfare systems [‒-–-] )\\d*" )
+  mod_df$aircraft = map_dbl(mod_df$report, extract_number, phrase = "(?<=aircraft [‒-–-] )\\d*" )
+  mod_df$helicopters = map_dbl(mod_df$report, extract_number, phrase = "(?<=helicopters [‒-–-] )\\d*" )
+  mod_df$uav = map_dbl(mod_df$report, extract_number, phrase = "(?<=UAV operational-tactical level [‒-–-] )\\d*" )
+  mod_df$vehicles = map_dbl(mod_df$report, extract_number, phrase = "(?<=vehicles and fuel tanks [‒-–-] )\\d*" )
+  # mod_df$special = map_dbl(mod_df$report, extract_number, phrase = "(?<=special equipment [‒-–-] )\\d*" )
+  mod_df$warships = map_dbl(mod_df$report, extract_number, phrase = "(?<=warships / boats [‒-–-] )\\d*" )
+  mod_df
+}
+
+#' Update the df that contains Ukraine MOD Russian casualty stats
+#'
+#' @param fname_ukr_mod_df file name of RData file that contains the stats
+#'
+#' @return Returns the updated df but also saves it to an RData file as a side effect.
+#' @export
+#'
+#' @examples
+#' update_ukr_mod_df("ukr_mod_df.RData", save_fname_ukr_mod_df = "test.RData")
+#'
+update_ukr_mod_df <- function(fname_ukr_mod_df, from_date = NULL, to_date = NULL,
+                              days_previous = 20,
+                              save_fname_ukr_mod_df = NULL) {
+  load(fname_ukr_mod_df)
+
+
+
+  ############################################################################
+  # Here's the orginal sequence of dates that was used to initialize ukr_mod_df.
+  # the_dates <- seq(from = ymd("2022-04-15"), to = today(), by = "1 day")
+  ############################################################################
+
+  # dates that need to be added to ukr_mod_df
+  if (is.null(from_date)) from_date <-  today() - days_previous
+  if (is.null(to_date)) to_date <- today()
+
+  additional_dates <- seq(from = from_date, to = to_date, by = "1 day")
+  abunch <- map_chr(additional_dates, fetch_ukr_mod_text, .progress = TRUE)
+  abunch <- abunch[!is.na(abunch)]
+
+  # ukr_mod_df <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
+  if (length(abunch > 0)) {
+    ukr_mod_page_additions <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
+    ukr_mod_additions <- parse_mod_text(ukr_mod_page_additions)
+  }
+
+  # use overlap_dates to check whether MOD has updated recent daata
+  # overlap_dates <- bind_rows(ukr_mod_df |> filter((ukr_mod_df$date %in% ukr_mod_additions$date)),
+  #                            ukr_mod_additions |> filter(ukr_mod_additions$date %in% ukr_mod_df$date)) |>
+  #   arrange(date) # |> View()
+
+  # save_ukr_mod__df <- ukr_mod_df
+  ukr_mod_df <- bind_rows(ukr_mod_df |> filter(!(ukr_mod_df$date %in% ukr_mod_additions$date)), ukr_mod_additions)
+
+  # calculate the number of days between each row
+  ukr_mod_df <- ukr_mod_df |> mutate(gap = as.numeric(date - lag(date, default = ukr_mod_df$date[1] - 1)))
+
+  # by default, save it back into the save file that it was loaded from
+  if (is.null(save_fname_ukr_mod_df)) save_fname_ukr_mod_df <- fname_ukr_mod_df
+  save(ukr_mod_df, file = save_fname_ukr_mod_df)
+  return(ukr_mod_df)
 }
