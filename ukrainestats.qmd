@@ -49,34 +49,39 @@ milestones$category = "Personnel"
 ```{r}
 #| label: scrape-mod-data
 
-load("uk_df.RData")
-the_dates <-  seq(from = ymd("2022-04-15"), to = today(), by = "1 month") %m+% days(3) # add 3 days to get the 15th of each month
-the_dates <- the_dates[!(the_dates %in% uk_df$date)]
-
-the_dates <- seq(from = ymd("2022-04-15"), to = today(), by = "1 day")
-
-# dates that need to be added to uk_df
-additional_date <- seq(from = today() - 15, to = today(), by = "1 day")
-abunch <- map_chr(additional_date, fetch_mod_text, .progress = TRUE)
-abunch <- abunch[!is.na(abunch)]
-
-# uk_df <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
-if (length(abunch > 0)) {
-  uk_additions <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
-  uk_additions <- parse_mod_text(uk_additions)
+if (1 == 2) {
+  # the code in this block was moved to update_ukr_mod_df in ukraine_functions.R
+  load("ukr_mod_df.RData")
+  # the_dates <-  seq(from = ymd("2022-04-15"), to = today(), by = "1 month") %m+% days(3) # add 3 days to get the 15th of each month
+  # the_dates <- the_dates[!(the_dates %in% ukr_mod_df$date)]
+  # 
+  # the_dates <- seq(from = ymd("2022-04-15"), to = today(), by = "1 day")
+  
+  # dates that need to be added to ukr_mod_df
+  additional_date <- seq(from = today() - 45, to = today(), by = "1 day")
+  abunch <- map_chr(additional_date, fetch_mod_text, .progress = TRUE)
+  abunch <- abunch[!is.na(abunch)]
+  
+  # ukr_mod_df <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
+  if (length(abunch > 0)) {
+    ukr_mod_page_additions <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
+    ukr_mod_additions <- parse_mod_text(ukr_mod_page_additions)
+  }
+  # use overlap_dates to check whether MOD has updated recent data
+  overlap_dates <- bind_rows(ukr_mod_df |> filter((ukr_mod_df$date %in% ukr_mod_additions$date)), 
+                             ukr_mod_additions |> filter(ukr_mod_additions$date %in% ukr_mod_df$date)) |> 
+    arrange(date) # |> View()
+  save_ukr_mod__df <- ukr_mod_df
+  ukr_mod_df <- bind_rows(ukr_mod_df |> filter(!(ukr_mod_df$date %in% ukr_mod_additions$date)), ukr_mod_additions)
+  
+  ukr_mod_df <- ukr_mod_df |> mutate(gap = as.numeric(date - lag(date, default = ukr_mod_df$date[1] - 1)))
+  
+  save(ukr_mod_df, file = "ukr_mod_df.RData")
+  
+  atest <- update_ukr_mod_df(fname_ukr_mod_df = "ukr_mod_df.RData", save_fname_ukr_mod_df = "test.RData")
 }
-# use overlap_dates to check whether MOD has updated recent daata
-overlap_dates <- bind_rows(uk_df |> filter((uk_df$date %in% uk_additions$date)), 
-                           uk_additions |> filter(uk_additions$date %in% uk_df$date)) |> 
-  arrange(date) # |> View()
-save_uk__df <- uk_df
-uk_df <- bind_rows(uk_df |> filter(!(uk_df$date %in% uk_additions$date)), uk_additions)
 
-uk_df <- uk_df |> mutate(gap = as.numeric(date - lag(date, default = uk_df$date[1] - 1)))
-
-
-
-uk2 <-  uk_df |> arrange(date) |> 
+ukr_mod2 <-  ukr_mod_df |> arrange(date) |> 
   mutate(Personnel = (personnel - lag(personnel)) / gap,
          Tanks = (tanks - lag(tanks)) / gap,
          APV = (apv - lag(apv)) / gap,
@@ -86,11 +91,11 @@ uk2 <-  uk_df |> arrange(date) |>
          Aircraft = (aircraft - lag(aircraft)) / gap)
 
          
-uk3 <-  uk2 %>%
+ukr_mod3 <-  ukr_mod2 %>%
   mutate(across(where(is.numeric), ~ pmax(0, .))) |> 
   mutate(wk = year(date) * 100 + isoweek(date)) 
 
-# uk_weekly <- uk3 |> 
+# ukr_mod_weekly <- ukr_mod3 |> 
 #   group_by(wk) |> 
 #   summarise(Tanks = sum(Tanks), APV = sum(APV), Artillery = sum(Artillery),
 #             MLRS = sum(MLRS), Helicopters = sum(Helicopters), 
@@ -100,13 +105,13 @@ uk3 <-  uk2 %>%
 #   filter(date != min(date, na.rm = TRUE),
 #          date != max(date, na.rm = TRUE))
 # computer average daily Russian combat losses, by week
-uk_weekly <- uk_df  |> arrange(date) |> 
+ukr_mod_weekly <- ukr_mod_df  |> arrange(date) |> 
   # isoweek of January 1 is 52, not 1
   mutate(wk = if_else((isoweek(date) > 25) & (month(date) == 1),  year(date) - 1, year(date)) * 100 + isoweek(date)) |> 
   group_by(wk) |> 
   slice_tail(n = 1) |>  # as recommended by GPT
   ungroup() |> 
-  mutate(gap = as.numeric(date - lag(date, default = uk_df$date[1] - 1)),
+  mutate(gap = as.numeric(date - lag(date, default = ukr_mod_df$date[1] - 1)),
          Personnel = (personnel - lag(personnel)) / gap,
          Tanks = (tanks - lag(tanks)) / gap,
          APV = (apv - lag(apv)) / gap,
@@ -116,7 +121,7 @@ uk_weekly <- uk_df  |> arrange(date) |>
          Aircraft = (aircraft - lag(aircraft)) / gap)
   
 
-save(uk_df, file = "uk_df.RData")
+
 ```
 
 2022-04-29<p>personnel ‒ about 23000 (+200) persons were liquidated,</p><p>tanks ‒ 986 (+16),</p><p>APV ‒ 2418 (+29),</p><p>artillery systems – 435 (+4),</p><p>MLRS ‒ 151 (+0),</p><p>Anti-aircraft warfare systems ‒ 73 (+1),</p><p>aircraft – 189 (+2),</p><p>helicopters – 155 (+0),</p><p>vehicles ‒ 1695 (+7),</p><p>boats / cutters ‒ 8 (+0),</p><p>fuel tanks ‒ 76 (+0),</p><p>UAV operational-tactical level ‒ 229 (+14).</p><p>special equipment ‒ 31 (+0).</p>
@@ -128,7 +133,7 @@ save(uk_df, file = "uk_df.RData")
 ```{r}
 #| label: simple-plots
 
-# for_plot <- uk3 |> 
+# for_plot <- ukr_mod3 |> 
 #   pivot_longer(cols = c(Personnel, Tanks, APV, Artillery, MLRS,
 #                         Helicopters, Aircraft), 
 #                names_to = "category", values_to = "count") |> 
@@ -141,7 +146,7 @@ save(uk_df, file = "uk_df.RData")
 #   geom_point() + 
 #   facet_wrap(~ category, ncol = 1, scales = "free_y")
 
-for_plot_wk <- uk_weekly |> 
+for_plot_wk <- ukr_mod_weekly |> 
   pivot_longer(cols = c(Personnel, Tanks, APV, Artillery, MLRS,
                         Helicopters, Aircraft), 
                names_to = "category", values_to = "count")|> 
@@ -168,7 +173,7 @@ pwk <- ggplot(data = for_plot_wk, aes(x = date, y = count)) +
 
 
 
-pair2 <- uk_weekly |> 
+pair2 <- ukr_mod_weekly |> 
   mutate(m = year(date) |> factor(),
          phase = case_when(
            date <= ymd("2022-05-20") ~ "phase 1",
