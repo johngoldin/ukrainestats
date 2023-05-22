@@ -19,7 +19,7 @@ library(GGally)
 ```
 ```{r}
 #| label: source-functions
-source("ukraine_functions.R")
+source("R/ukraine_functions.R")
 ```
 
 

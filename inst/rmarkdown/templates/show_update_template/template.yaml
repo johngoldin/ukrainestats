@@ -1,0 +1,4 @@
+name: Blog Post
+description: >
+   An RMarkdown template for a blog post in Quarto that includes and Update Date
+create_dir: TRUE
