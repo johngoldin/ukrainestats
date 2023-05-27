@@ -5,6 +5,21 @@
 # page = read_html(link, as_html = FALSE)
 # lines <- read_html(link)
 
+############################################################################
+# These functions find the URL's for the Ukraine MOD daily reports and
+# parset the reports. The counts of losses are tabulated in the data frame
+# ukr_mod_df. To update that data frame, execute in the console
+#     update_ukr_mod_df("ukr_mod_df.RData")
+############################################################################
+
+
+if (1 == 2) {
+  ############################################################################
+  # Run the next line to update the data in ukr_mod_df.RData.
+  ############################################################################
+  update_ukr_mod_df("ukr_mod_df.RData")
+}
+
 library(tidyverse)
 library(glue)
 library(xml2)
@@ -243,7 +258,7 @@ update_ukr_mod_df <- function(fname_ukr_mod_df, from_date = NULL, to_date = NULL
   # ukr_mod_df <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
   if (length(abunch > 0)) {
     ukr_mod_page_additions <- tibble(report = abunch, date = ymd(str_sub(report, start = 1, end = 10)))
-    ukr_mod_additions <- parse_mod_text(ukr_mod_page_additions)
+    ukr_mod_additions <- parse_ukr_mod_text(ukr_mod_page_additions)
   }
 
   # use overlap_dates to check whether MOD has updated recent daata
