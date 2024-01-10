@@ -45,6 +45,7 @@ milestones <- tibble(
 milestones$key_symbol <- letters[1:nrow(milestones)]
 milestones <- milestones |> relocate(key_symbol)
 milestones$category = "Personnel"
+
 ```
 ```{r}
 #| label: scrape-mod-data
