@@ -2,8 +2,13 @@
 
 # using: https://www.scrapingdog.com/blog/web-scraping-r/
 # link <- "https://www.mil.gov.ua/en/news/2023/03/08/the-total-combat-losses-of-the-enemy-from-24-02-2022-to-08-03-2023/"
+#
 # page = read_html(link, as_html = FALSE)
 # lines <- read_html(link)
+#
+# current location of links:
+# https://www.kmu.gov.ua/en/news/zahalni-boiovi-vtraty-protyvnyka-z-24022022-po-02012024
+
 
 ############################################################################
 # These functions find the URL's for the Ukraine MOD daily reports and
@@ -15,7 +20,7 @@
 # directory that contains the saved ukraine data
 ukraine_folder <- fs::path_home("R_local_repos", "ukrainestats")
 
-local_fetch_date <- ymd("2023-05-01")    # date when html available in local_fetch_folder
+local_fetch_date <- lubridate::ymd("2023-05-01")    # date when html available in local_fetch_folder
 local_fetch_folder <- fs::path_home("R_local_repos", "ukrainestats", "ukr_reports")
 
 
