@@ -46,7 +46,7 @@ library(xml2)
 #' @export
 #'
 #' @examples
-#' x <- str_extract(text, "(?<=personnel [‒-] about )\\d*")
+#' x <- str_extract(text, "(?<=personnel [‒-] about )[\\d,]*")
 extract_number  <-  function(text, phrase = "(?<=personnel [‒-] about )[\\d,]*") {
   # In regular expressions, \D is a shorthand character class that matches any character that is not a digit.
   # It's the opposite of \d, which matches any digit (0-9).
@@ -399,21 +399,21 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL,
 #' @examples
 parse_ukr_mod_text <- function(mod_df) {
   mod_df$report <- str_replace_all(mod_df$report,  intToUtf8(160), " ")
-  # mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=personnel ?[‒–—-] ? ?about (?:близько/ )?)\\d*" )
-  mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=about )\\d*" )
-  mod_df$tanks = map_dbl(mod_df$report, extract_number, phrase = "(?<=tanks [‒–—-] )\\d*" )
-  mod_df$apv = map_dbl(mod_df$report, extract_number, phrase = "(?<=APV [‒–—-] )\\d*" )
-  mod_df$artillery = map_dbl(mod_df$report, extract_number, phrase = "(?<=artillery systems [‒–—-] )\\d*" )
-  mod_df$mlrs = map_dbl(mod_df$report, extract_number, phrase = "(?<=MLRS [‒–—-] )\\d*" )
-  mod_df$aa = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=-aircraft warfare systems [‒–—-] )\\d*" )
+  # mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=personnel ?[‒–—-] ? ?about (?:близько/ )?)[\\d,]*" )
+  mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=about )[\\d,]*" )
+  mod_df$tanks = map_dbl(mod_df$report, extract_number, phrase = "(?<=tanks [‒–—-] )[\\d,]*" )
+  mod_df$apv = map_dbl(mod_df$report, extract_number, phrase = "(?<=APV [‒–—-] )[\\d,]*" )
+  mod_df$artillery = map_dbl(mod_df$report, extract_number, phrase = "(?<=artillery systems [‒–—-] )[\\d,]*" )
+  mod_df$mlrs = map_dbl(mod_df$report, extract_number, phrase = "(?<=MLRS [‒–—-] )[\\d,]*" )
+  mod_df$aa = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=-aircraft warfare systems [‒–—-] )[\\d,]*" )
   # mod_df$aircraft = NA_real_
-  mod_df$aircraft = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=aircraft [‒–—-] )\\d*", .progress = TRUE )
-  mod_df$helicopters = map_dbl(mod_df$report, extract_number, phrase = "(?<=helicopters [‒–—-] )\\d*" )
-  mod_df$uav = map_dbl(mod_df$report, extract_number, phrase = "(?<=UAV operational-tactical level [‒–—-] )\\d*" )
-  mod_df$vehicles = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=vehicles and fuel tanks [‒–—-] )\\d*" )
-  mod_df$special = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=special equipment [‒–—-] )\\d*" )
-  mod_df$warships = map_dbl(mod_df$report, extract_number, phrase = "(?<=warships / boats [‒–—-] )\\d*" )
-  mod_df$cmissiles = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=cruise missiles [‒–—-] )\\d*" )
+  mod_df$aircraft = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=aircraft [‒–—-] )[\\d,]*", .progress = TRUE )
+  mod_df$helicopters = map_dbl(mod_df$report, extract_number, phrase = "(?<=helicopters [‒–—-] )[\\d,]*" )
+  mod_df$uav = map_dbl(mod_df$report, extract_number, phrase = "(?<=UAV operational-tactical level [‒–—-] )[\\d,]*" )
+  mod_df$vehicles = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=vehicles and fuel tanks [‒–—-] )[\\d,]*" )
+  mod_df$special = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=special equipment [‒–—-] )[\\d,]*" )
+  mod_df$warships = map_dbl(mod_df$report, extract_number, phrase = "(?<=warships / boats [‒–—-] )[\\d,]*" )
+  mod_df$cmissiles = map_dbl(mod_df$report, extract_number, phrase = "(?i)(?<=cruise missiles [‒–—-] )[\\d,]*" )
   mod_df
 }
 
@@ -450,24 +450,24 @@ parse_ukr_mod_text <- function(mod_df) {
 parse_ukr_mod_ukraine <- function(mod_df) {
   temp <- mod_df$report
 
-  # mod_df$personnel = map_dbl(str_replace_all(mod_df$report, intToUtf8(160), ""), extract_number, phrase = "(?<=особового складу ?[‒–—-] ? ?близько? )\\d*" ) #personnel
+  # mod_df$personnel = map_dbl(str_replace_all(mod_df$report, intToUtf8(160), ""), extract_number, phrase = "(?<=особового складу ?[‒–—-] ? ?близько? )[\\d,]*" ) #personnel
   mod_df$report <- str_replace_all(mod_df$report,  intToUtf8(160), " ")
 
   mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = pattern_ukrainian_personnel ) #personnel
   # mod_df$personnel = map_dbl(mod_df$report,   extracted_personnel <- str_extract(the_line, pattern_personnel) |>
   #                              str_replace_all("\\D", "")
 
-  mod_df$tanks = map_dbl(mod_df$report, extract_number, phrase = "(?<=танків ?[‒–—-] )\\d*" ) # utf8ToInt("‒-–—") [1] 8210   45 8211 8212
-  mod_df$apv = map_dbl(mod_df$report, extract_number, phrase = "(?<=бойових броньованих машин ?[‒–—-] )\\d*" )
-  mod_df$artillery = map_dbl(mod_df$report, extract_number, phrase = "(?<=артилерійських систем ?[‒–—-] )\\d*" ) #prob
-  mod_df$mlrs = map_dbl(mod_df$report, extract_number, phrase = "(?<=РСЗВ ?[‒–—-] )\\d*" )
-  mod_df$aa = map_dbl(mod_df$report, extract_number, phrase = "(?<=засоби ППО ?[‒–—-] )\\d*" )
-  mod_df$aircraft = map_dbl(mod_df$report, extract_number, phrase = "(?<=літаків ?[‒–—-] )\\d*" )
-  mod_df$helicopters = map_dbl(mod_df$report, extract_number, phrase = "(?<=гелікоптерів ?[‒–—-] )\\d*" )
-  mod_df$uav = map_dbl(mod_df$report, extract_number, phrase = "(?<=БПЛА оперативно-тактичного рівня ?[‒–—-] )\\d*" )
-  mod_df$vehicles = map_dbl(mod_df$report, extract_number, phrase = "(?<=автомобільної техніки та автоцистерн/? ?[‒–—-] )\\d*" )
-  # mod_df$special = map_dbl(mod_df$report, extract_number, phrase = "(?<=спеціальна техніка ?[‒–—-] )\\d*" )
-  mod_df$warships = map_dbl(mod_df$report, extract_number, phrase = "(?<=кораблі ?/ ?катери ?[‒–—-] )\\d*" )
+  mod_df$tanks = map_dbl(mod_df$report, extract_number, phrase = "(?<=танків ?[‒–—-] )[\\d,]*" ) # utf8ToInt("‒-–—") [1] 8210   45 8211 8212
+  mod_df$apv = map_dbl(mod_df$report, extract_number, phrase = "(?<=бойових броньованих машин ?[‒–—-] )[\\d,]*" )
+  mod_df$artillery = map_dbl(mod_df$report, extract_number, phrase = "(?<=артилерійських систем ?[‒–—-] )[\\d,]*" ) #prob
+  mod_df$mlrs = map_dbl(mod_df$report, extract_number, phrase = "(?<=РСЗВ ?[‒–—-] )[\\d,]*" )
+  mod_df$aa = map_dbl(mod_df$report, extract_number, phrase = "(?<=засоби ППО ?[‒–—-] )[\\d,]*" )
+  mod_df$aircraft = map_dbl(mod_df$report, extract_number, phrase = "(?<=літаків ?[‒–—-] )[\\d,]*" )
+  mod_df$helicopters = map_dbl(mod_df$report, extract_number, phrase = "(?<=гелікоптерів ?[‒–—-] )[\\d,]*" )
+  mod_df$uav = map_dbl(mod_df$report, extract_number, phrase = "(?<=БПЛА оперативно-тактичного рівня ?[‒–—-] )[\\d,]*" )
+  mod_df$vehicles = map_dbl(mod_df$report, extract_number, phrase = "(?<=автомобільної техніки та автоцистерн/? ?[‒–—-] )[\\d,]*" )
+  # mod_df$special = map_dbl(mod_df$report, extract_number, phrase = "(?<=спеціальна техніка ?[‒–—-] )[\\d,]*" )
+  mod_df$warships = map_dbl(mod_df$report, extract_number, phrase = "(?<=кораблі ?/ ?катери ?[‒–—-] )[\\d,]*" )
   mod_df
 }
 #' Update the df that contains Ukraine MOD Russian casualty stats
