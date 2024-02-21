@@ -22,7 +22,7 @@ ukraine_folder <- fs::path_home("R_local_repos", "ukrainestats")
 
 local_fetch_date <- lubridate::ymd("2023-05-01")    # date when html available in local_fetch_folder
 local_fetch_folder <- fs::path_home("R_local_repos", "ukrainestats", "ukr_reports")
-
+cripo_date <- lubridate::ymd("2024-01-25")    # date when html exists at cripo.com.ua (data obtained from Facebook, I think)
 
 if (1 == 2) {
   ############################################################################
@@ -47,7 +47,7 @@ library(xml2)
 #'
 #' @examples
 #' x <- str_extract(text, "(?<=personnel [‒-] about )\\d*")
-extract_number  <-  function(text, phrase = "(?<=personnel [‒-] about )\\d*") {
+extract_number  <-  function(text, phrase = "(?<=personnel [‒-] about )[\\d,]*") {
   # In regular expressions, \D is a shorthand character class that matches any character that is not a digit.
   # It's the opposite of \d, which matches any digit (0-9).
   if (str_detect(text, intToUtf8(160))) text <- str_replace_all(text,  intToUtf8(160), " ")
@@ -206,7 +206,10 @@ create_ukr_mod_link <- function(adate, old_style = FALSE) {
   #
   # Reports moved from MOD to www.kmu.gov.ua starting 2023-06-21
   url_moved <- as_date("2023-06-21")
-  if ((old_style & (adate < url_moved)) |  (adate < url_moved)) {
+  if ((adate > cripo_date) & (adate <= today())) {
+    link <- glue("https://cripo.com.ua/news/war/generalnyj-shtab-zsu-informuye-pro-vtraty-voroga-na-", format(adate, "%d-%m-%y"), "/")
+  }
+  else if ((old_style & (adate < url_moved)) |  (adate < url_moved)) {
     if (adate > as_date("2022-09-01")) link <- glue("https://www.kmu.gov.ua/en/news/zahalni-boiovi-vtraty-protyvnyka-z-24022022-po-", format(adate, "%d%m%Y"),"/")
     if (adate == as_date("2023-03-30")) link <-  "https://www.mil.gov.ua/en/news/2023/03/30/blizko-173-tis-osib-znishheno-ponad-6970-bojovih-bronovanih-mashin-voroga-–-genshtab-zsu/"
     else if (adate >= as_date("2023-03-03")) link <- glue("https://www.mil.gov.ua/en/news/", format(adate, "%Y/%m/%d"), "/the-total-combat-losses-of-the-enemy-from-24-02-2022-to-", format(adate, "%d-%m-%Y"), "/")
@@ -230,13 +233,14 @@ create_ukr_mod_link <- function(adate, old_style = FALSE) {
 #' fetch_ukr_mod_text("2023-03-29")
 #' fetch_ukr_mod_text("", known_url = "https://www.mil.gov.ua/news/2023/09/17/vid-pochatku-shirokomasshtabnoi-vijni-proti-ukraini-rosiya-vtratila-uzhe-ponad-272-300-osib-znishheno-4-620-tankiv-voroga-–-genshtab-zsu/")
 #' xx <- fetch_ukr_mod_text("", known_url = in_ukraine_urls[2])
+#' xx <- fetch_ukr_mod_text("", known_url = "ukr_reports/ukraine_stats_2024-02-20.txt")
 #'
-fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL) {
+fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL, ukrainian = FALSE) {
   # fed either a date or a URL
   if (!is.Date(adate)) adate <- as_date(adate)
   if (!is.null(known_url)) {
     link <-  known_url
-    adate <- str_extract(known_url, pattern = "(\\d{4})/(\\d{2})/(\\d{2})") |>
+    adate <- str_extract(known_url, pattern = "(\\d{4})-(\\d{2})-(\\d{2})") |>
       ymd()
   } else {
     if (adate < ymd("2022-04-12")) return(NA_character_)
@@ -252,9 +256,9 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL)
     # str_extract(himg, "(?<=href=\").*(?=\" class)")
     # keep in mind: stringi::stri_reverse("abcde")
     # look for:  "<base href=\"https://www.mil.gov.ua/en/\" />"
-    #link <- create_ukr_mod_link(adate)
+    link <- create_ukr_mod_link(adate)
   }
-  if (adate >= local_fetch_date) {        # after this date, must relyinig on manually downloaded html pages
+  if ((adate >= local_fetch_date) & (adate <= cripo_date)) {        # after this date, must relyinig on manually downloaded html pages
     x <- tryCatch({
     read_lines(fs::path_home("Documents", "R_local_repos", "ukrainestats", "ukr_reports",
                                   glue("ukraine_stats_", format(adate, "%Y-%m-%d"), ".html")))
@@ -289,13 +293,14 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL)
   # image_lines <-  x[str_detect(x, "meta property=\"og:image")]
   # str_extract(image_lines[1], "(?<=content=\").*(?=\" />)")
   #
-  if (is.null(known_url)) {
+  if (!ukrainian) {
     # the image of the report is in: x[str_detect(x, "<a href=\"/assets/images/resources/")]
     #the_line <- x[x |> str_detect("personnel ‒ about")]
     # the_line <- x[x |> str_detect("The total combat losses of the enemy from")]
     if (adate <= ymd("2022-04-16")) the_line <- x[str_detect(x, "personnel ‒ about")]
     if (adate > ymd("2022-04-16")) the_line <- x[str_detect(x, "persons were liquidated")]
     if (length(the_line) == 0) the_line <- x[str_detect(x, "personnel ‒ about")]
+    if (length(the_line) == 0) the_line <- x[str_detect(x, " ‒ близько/ about")]
     if (length(the_line) == 0) {
       if (adate < ymd("2023-09-13")) warning(paste0("Info line not found for ", adate))
       return(NA_character_)
@@ -313,10 +318,11 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL)
     warning(paste0("Info line not found for ", adate))
     return(NA_character_)
   }
-  if (is.null(known_url)) {
+  if (!ukrainian) {
     if (adate <= as_date("2022-04-16")) first_line <- which(str_detect(x, "personnel ‒ about"))
     else if (adate > as_date("2022-04-16"))  first_line <- which(str_detect(x, "persons were liquidated"))
     if (length(first_line) == 0) first_line <- which(str_detect(x, "personnel ‒ about"))
+    if (length(first_line) == 0) first_line <- which(str_detect(x, " ‒ близько/ about"))
   } else { # assume Ukrainian
     first_line <- which(str_detect(x, key_phrase))
   }
@@ -328,7 +334,7 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL)
   if (length(first_line) == 0) {
     stop(paste("In ukraine_functions fetch_ukr_mod_text", "Missing first_line text.", adate))
   }
-  if (is.null(known_url))  last_line <- which(str_detect(x, "special equipment"))
+  if (!ukrainian)  last_line <- which(str_detect(x, "special equipment"))
   else last_line <- which(str_detect(x, "спеціальна техніка"))
   if (length(last_line) == 2) last_line <-  last_line[2]
   if (is.na(last_line) || (length(last_line) == 0)) last_line <- which(str_detect(x, "vehicles"))
@@ -357,6 +363,28 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL)
 # vehicles and fuel tanks – 11463 (+40),
 # special equipment ‒ 1313 (+9).
 
+# construct example data for testing parse_ukr_mod_text
+#' xx <- fetch_ukr_mod_text("", known_url = "ukr_reports/ukraine_stats_2024-02-20.txt")
+#
+# some_data <- tibble(report = xx, date = ymd("2024-02-20"))
+# some_additions <-  parse_ukr_mod_text(some_data)
+
+# most recent example, from https://cripo.com.ua/news/war/generalnyj-shtab-zsu-informuye-pro-vtraty-voroga-na-01-02-24/
+# особового складу / personnel ‒ близько/ about 386230 (+1000) осіб / persons,
+# танків / tanks ‒ 6322 (+12) од,
+# бойових броньованих машин / APV ‒ 11773 (+16) од,
+# артилерійських систем / artillery systems – 9228 (+33) од,
+# РСЗВ / MLRS – 976 (+2) од,
+# засоби ППО / Anti-aircraft warfare systems ‒ 663 (+0) од,
+# літаків / aircraft – 332 (+0) од,
+# гелікоптерів / helicopters – 324 (+0) од,
+# БПЛА оперативно-тактичного рівня / UAV operational-tactical level – 7136 (+36),
+# крилаті ракети / cruise missiles ‒ 1847 (+1),
+# кораблі /катери / warships / boats ‒ 23 (+0) од,
+# підводні човни / submarines – 1 (+0) од,
+# автомобільної техніки та автоцистерн/ vehicles and fuel tanks – 12267 (+36) од,
+# спеціальна техніка / special equipment ‒ 1462 (+10)
+
 #' Parse the Russian casualty info from Ukraine MOD summary pages.
 #'
 #' The text from each web page is in the report column. The extract_number
@@ -371,7 +399,8 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL)
 #' @examples
 parse_ukr_mod_text <- function(mod_df) {
   mod_df$report <- str_replace_all(mod_df$report,  intToUtf8(160), " ")
-  mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=personnel ?[‒–—-] ? ?about )\\d*" )
+  # mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=personnel ?[‒–—-] ? ?about (?:близько/ )?)\\d*" )
+  mod_df$personnel = map_dbl(mod_df$report, extract_number, phrase = "(?<=about )\\d*" )
   mod_df$tanks = map_dbl(mod_df$report, extract_number, phrase = "(?<=tanks [‒–—-] )\\d*" )
   mod_df$apv = map_dbl(mod_df$report, extract_number, phrase = "(?<=APV [‒–—-] )\\d*" )
   mod_df$artillery = map_dbl(mod_df$report, extract_number, phrase = "(?<=artillery systems [‒–—-] )\\d*" )
