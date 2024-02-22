@@ -6,8 +6,11 @@
 # page = read_html(link, as_html = FALSE)
 # lines <- read_html(link)
 #
-# current location of links:
+# former location of links:
 # https://www.kmu.gov.ua/en/news/zahalni-boiovi-vtraty-protyvnyka-z-24022022-po-02012024
+
+# once ukraine_functions.R has been sourced, use the following line to update"
+# update_ukr_mod_df("ukr_mod_df.RData", save_fname_ukr_mod_df = "ukr_mod_df.RData", days_previous = 15) |> print()
 
 
 ############################################################################
@@ -128,6 +131,9 @@ extract_number  <-  function(text, phrase = "(?<=personnel [‒-] about )[\\d,]*
 # Because I had difficulty using read_lines to scrape the data from the Governmental Portal,
 # I created an AppleScript script to download the html to my local disk at local_fetch_folder.
 # The date when these html files become available is local_fetch_date.
+#
+# But posting them at the kmu.gov.ua portal didn't last long. Now they seem to be on Facebook.
+# I had to find a Ukrainian publication that continued to reproduce them.
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 # there's a gap in the English URL's. They start again with 2023/09/27
@@ -260,7 +266,7 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL,
   }
   if ((adate >= local_fetch_date) & (adate <= cripo_date)) {        # after this date, must relyinig on manually downloaded html pages
     x <- tryCatch({
-    read_lines(fs::path_home("Documents", "R_local_repos", "ukrainestats", "ukr_reports",
+      readr::read_lines(fs::path_home("Documents", "R_local_repos", "ukrainestats", "ukr_reports",
                                   glue("ukraine_stats_", format(adate, "%Y-%m-%d"), ".html")))
     }, error = function(e) {
       # warning(paste0("For ", adate, " File not found. "))
@@ -271,7 +277,12 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL,
       return(NA_character_)
     }
   } else {
-    x <- read_lines(link)
+    x <- tryCatch({
+      readr::read_lines(link)
+  }, error = function(e) {
+    warning(paste0("For ", adate, " Link error:", e))
+    return(NA_character_)
+  })
   }
 
   # https://www.mil.gov.ua/assets/images/resources/71419/d086b0fc59b7a0a201780cc85201a6ab335ab86c.jpg
