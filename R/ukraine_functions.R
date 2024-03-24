@@ -31,7 +31,7 @@ if (1 == 2) {
   ############################################################################
   # Run the next line to update the data in ukr_mod_df.RData.
   ############################################################################
-  update_ukr_mod_df("ukr_mod_df.RData")
+  update_ukr_mod_df("ukr_mod_df.RData", days_previous = 10)
 }
 
 library(tidyverse)
@@ -269,7 +269,7 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL,
       readr::read_lines(fs::path_home("Documents", "R_local_repos", "ukrainestats", "ukr_reports",
                                   glue("ukraine_stats_", format(adate, "%Y-%m-%d"), ".html")))
     }, error = function(e) {
-      # warning(paste0("For ", adate, " File not found. "))
+      warning(paste0("For ", adate, " before cripo_date, File not found. "))
       return(NULL)
     })
     if (length(x) == 0) {
@@ -281,8 +281,12 @@ fetch_ukr_mod_text <- function(adate, fetch_image_url = FALSE, known_url = NULL,
       readr::read_lines(link)
   }, error = function(e) {
     warning(paste0("For ", adate, " Link error:", e))
-    return(NA_character_)
+    return(NULL)
   })
+    if (length(x) == 0) {
+      warning(paste0("For ", adate, " File not found. "))
+      return(NA_character_)
+    }
   }
 
   # https://www.mil.gov.ua/assets/images/resources/71419/d086b0fc59b7a0a201780cc85201a6ab335ab86c.jpg
@@ -557,6 +561,11 @@ update_ukr_mod_df <- function(fname_ukr_mod_df, from_date = NULL, to_date = NULL
   # save_ukr_mod__df <- ukr_mod_df
   # ukr_mod_df <- bind_rows(ukr_mod_df |> filter(!(ukr_mod_df$date %in% ukr_mod_additions$date)), ukr_mod_additions)
   ukr_mod_df <- bind_rows(ukr_mod_df |> filter(!(date %in% additions$date)), additions)
+
+  # fix possible typo in one url page
+  if(ukr_mod_df$artillery[ukr_mod_df$date == ymd("2024-02-27")] == 1009) {
+    ukr_mod_df$artillery[ukr_mod_df$date == ymd("2024-02-27")] <- 10009
+  }
 
   # calculate the number of days between each row
   ukr_mod_df <- ukr_mod_df |>
